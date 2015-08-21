@@ -2,7 +2,7 @@
 triplesec = require "triplesec"
 kbpgp = require 'kbpgp'
 WordArray = triplesec.WordArray
-{KeyManager,burn} = kbpgp
+{KeyManager} = kbpgp
 {make_esc} = require 'iced-error'
 
 #=======================================================================================

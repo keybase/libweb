@@ -28,6 +28,8 @@
   "dependencies": {
     "iced-error": "0.0.9",
     "iced-runtime": "^1.0.2",
-    "request": "^2.61.0"
+    "kbpgp": "^2.0.43",
+    "request": "^2.61.0",
+    "triplesec": "^3.0.20"
   }
 }
