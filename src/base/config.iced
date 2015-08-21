@@ -1,13 +1,17 @@
 
 #------------------
 
+EUI = () -> new Error "Unimplemented"
+
+#------------------
+
 exports.Request = class Request
 
   # @param {Function} impl A function that takes request-like parmeters
   #   and calls back with an (err, body) pair
-  # @param {Function} get_csrf_token A function that returns a current
-  #   CSRF token to pass into the request call.
-  constructor : ( {@impl, @get_csrf_token}) ->
+  constructor : ( {@get_csrf_token}) ->
+
+  request : ( args, cb) -> cb EUI()
 
 #---------------
 
