@@ -17,8 +17,8 @@ $(BUILD_STAMP): \
 	lib/browser/index.js \
 	lib/node/request.js \
 	lib/node/index.js \
-	lib/common/account.js \
-	lib/common/index.js
+	lib/hilevel/account.js \
+	lib/hilevel/index.js
 	date > $@
 
 clean:
