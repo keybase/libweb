@@ -135,12 +135,22 @@ exports.Account = class Account
 
   #---------------
 
-  get_public_key: (username, cb) ->
+  get_public_pgp_key: (username, cb) ->
     err = ret = null
     await @config.request { endpoint : "user/lookup", params : {username} }, defer err, res
     unless err?
       ret = res?.body?.them?.public_keys?.primary?.bundle
       err = new Error "Cannot find a public key for '#{@config.escape_user_content username}'" unless ret?
+    cb err, ret
+
+  #---------------
+
+  get_public_pgp_keys : (username, cb) ->
+    err = ret = null
+    await @config.request { endpoint : "user/lookup", params : {username} }, defer err, res
+    unless err?
+      ret = res?.body?.them?.public_keys?.pgp_public_keys
+      err = new Error "Cannot find a public key for '#{@config.escape_user_content username}'" unless ret?.length
     cb err, ret
 
   #---------------
