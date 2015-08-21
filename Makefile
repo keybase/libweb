@@ -13,7 +13,8 @@ lib/%.js: src/%.iced
 
 $(BUILD_STAMP): \
 	lib/base/config.js \
-	lib/browser/ajax.js \
+	lib/base/request.js \
+	lib/browser/request.js \
 	lib/browser/index.js \
 	lib/node/request.js \
 	lib/node/index.js \
