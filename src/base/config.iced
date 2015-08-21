@@ -3,7 +3,7 @@
 
 exports.Config = class Config
 
-  # @param {Request} request A request object that tells us how to make requests
+  # @param {Request} reqeng A request object that tells us how to make requests
   #    to the remote Web server; can be either Ajax-y or Node-y
   # @param {Object} C a dictionary of constants that are avaible as Keybase public
   #    constants.
@@ -11,7 +11,7 @@ exports.Config = class Config
   #    URL. Maps strings to strings.
   # @param {Function escape_user_content} Run all error messages through this filter
   #    to guard against XSS attacks
-  constructor : ( { @request, @C, @fq_api_endpoint, @escape_user_content }) ->
+  constructor : ( { @reqeng, @C, @fq_api_endpoint, @escape_user_content }) ->
 
   #
   # Make a request to an API endpoint.
@@ -21,7 +21,7 @@ exports.Config = class Config
   #
   request : (args, cb) ->
     args.url = @fq_api_endpoint(args.endpoint) if args.endpoint? and @fq_api_endpoint?
-    await @request.request args, defer err, res
+    await @reqeng.request args, defer err, res
     if err? and @escape_user_content?
       err = new Error @escape_user_content err.message
     cb err, res

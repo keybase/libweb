@@ -28,7 +28,9 @@ exports.Request = class Request extends base.Request
     xhr = @jQuery.ajax(params)
 
     finish = (err) =>
-      @_handle_response { err, inargs, body : xhr.responseJSON, http_status : xhr.status }
+      return unless (tmp = cb)?
+      cb = null
+      @_handle_response { err, inargs, body : xhr.responseJSON, http_status : xhr.status }, tmp
 
     xhr.fail (_,textStatus) -> finish new Error textStatus
     xhr.done () -> finish null

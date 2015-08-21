@@ -116,7 +116,8 @@ exports.Account = class Account
       salt = new triplesec.Buffer res.body.salt, 'hex'
       await @scrypt_hash_passphrase { salt, key : pw, encoding : null }, defer pwh
       pwh_version = @triplesec_version
-    cb err, pwh, pwh_version, salt, body?.login_session
+    console.log res?.body
+    cb err, pwh, pwh_version, salt, res?.body?.login_session
 
   #---------------
 
@@ -152,8 +153,8 @@ exports.Account = class Account
     sk = err = null
     if bundle?
       tsenc = @get_tsenc_for_decryption { passphrase }
-      await KeyManager.import_from_p3skb { raw: bundle, asp }, esc defer sk
-      await sk.unlock_p3skb { asp, tsenc }, esc defer()
+      await KeyManager.import_from_p3skb { raw: bundle }, esc defer sk
+      await sk.unlock_p3skb {   tsenc }, esc defer()
     err = null
     unless sk?
       err = new Error "Failed to get and unlock your private key"
@@ -189,8 +190,8 @@ exports.Account = class Account
       await @reencrypt_private_key sk, esc defer params.private_key
     else
       endpoint = "account/update"
-    await @config.request { method : "POST", endpoint }, params, esc defer body
-    cb null, body
+    await @config.request { method : "POST", endpoint, params }, esc defer res
+    cb null, res?.body
 
   #---------------
 
