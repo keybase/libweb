@@ -116,7 +116,6 @@ exports.Account = class Account
       salt = new triplesec.Buffer res.body.salt, 'hex'
       await @scrypt_hash_passphrase { salt, key : pw, encoding : null }, defer pwh
       pwh_version = @triplesec_version
-    console.log res?.body
     cb err, pwh, pwh_version, salt, res?.body?.login_session
 
   #---------------
