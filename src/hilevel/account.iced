@@ -30,13 +30,18 @@ exports.Account = class Account
   constructor : ({@config}) ->
     {C} = @config
     @triplesec_version = @config.C.triplesec.version
-    @enc = new triplesec.Encryptor { version  : @triplesec_version }
     @nacl = {}
     @lks = {}
     @extra_keymaterial = C.pwh.derived_key_bytes +
       C.nacl.eddsa_secret_key_bytes +
       C.nacl.dh_secret_key_bytes +
       C.device.lks_client_half_bytes
+    @new_tsec()
+
+  #---------------
+
+  new_tsec : () -> 
+    @enc = new triplesec.Encryptor { version : @triplesec_version }
 
   #---------------
 
@@ -136,7 +141,8 @@ exports.Account = class Account
 
   get_public_pgp_key: (username, cb) ->
     err = ret = null
-    await @config.request { endpoint : "user/lookup", params : {username} }, defer err, res
+    fields = "public_keys"
+    await @config.request { endpoint : "user/lookup", params : {username, fields} }, defer err, res
     unless err?
       ret = res?.body?.them?.public_keys?.primary?.bundle
       err = new Error "Cannot find a public key for '#{@config.escape_user_content username}'" unless ret?
@@ -144,8 +150,20 @@ exports.Account = class Account
 
   #---------------
 
+  get_devices : ({username}, cb) ->
+    err = ret = null
+    fields = "devices"
+    await @config.request { endpoint : "user/lookup", params : { username, fields } }, defer err, res
+    unless err?
+      ret = res?.body?.them?.devices
+      err = new Error "Cannot find devices for '#{@config.escape_user_content username}" unless ret?
+    cb err, ret
+
+  #---------------
+
   get_public_pgp_keys : (username, cb) ->
     err = ret = null
+    fields = "public_keys"
     await @config.request { endpoint : "user/lookup", params : {username} }, defer err, res
     unless err?
       ret = res?.body?.them?.public_keys?.pgp_public_keys
