@@ -172,7 +172,7 @@ exports.Account = class Account
 
   #---------------
 
-  get_unlocked_private_key : (pw, cb) ->
+  get_unlocked_private_primary_pgp_key : (pw, cb) ->
     esc = make_esc (err) -> cb err, null
     passphrase = new triplesec.Buffer pw
     await @config.request { method : "GET", endpoint : "me" }, esc defer res
@@ -181,7 +181,7 @@ exports.Account = class Account
     if bundle?
       tsenc = @get_tsenc_for_decryption { passphrase }
       await KeyManager.import_from_p3skb { raw: bundle }, esc defer sk
-      await sk.unlock_p3skb {   tsenc }, esc defer()
+      await sk.unlock_p3skb { tsenc }, esc defer()
     err = null
     unless sk?
       err = new Error "Failed to get and unlock your private key"
@@ -189,11 +189,25 @@ exports.Account = class Account
 
   #---------------
 
+  get_unlocked_private_pgp_keys : (pw, cb) ->
+    esc = make_esc cb, "get_unlocked_private_pgp_keys"
+    sks = []
+    passphrase = new triplesec.Buffer pw
+    tsenc = @get_tsenc_for_decryption { passphrase }
+    await @config.request { method : "GET", endpoint : "me" }, esc defer res
+    for sk in res?.body?.me?.private_keys?.all when (sk.type is @config.C.key.key_type.P3KSB_PRIVATE)
+      await KeyManager.import_from_p3skb { raw: bundle }, esc defer sk
+      await sk.unlock_p3skb { tsenc }, esc defer()
+      sks.push sk
+    cb err, sks
+
+  #---------------
+
   export_my_private_key: (pw, cb) ->
     esc = make_esc cb, "export_my_private_key"
     err = armored_private = null
     passphrase = new triplesec.Buffer pw
-    await @get_unlocked_private_key pw, esc defer sk
+    await @get_unlocked_private_primary_pgp_key pw, esc defer sk
     await sk.sign {}, esc defer()
     await sk.export_pgp_private_to_client {passphrase}, esc defer armored_private
     cb null, armored_private
@@ -210,7 +224,7 @@ exports.Account = class Account
     params = {}
     esc = make_esc cb, "change_password"
     await @pw_to_login { pw : oldpw }, esc defer params.login_session, params.hmac_pwh, salt
-    await @get_unlocked_private_key oldpw, esc defer sk
+    await @get_unlocked_private_primary_pgp_key oldpw, esc defer sk
     await @gen_new_pwh { pw : newpw, salt }, esc defer params.pwh, params.pwh_version
     if sk?
       endpoint = "key/add"
