@@ -5,6 +5,7 @@ WordArray = triplesec.WordArray
 {KeyManager} = kbpgp
 {make_esc} = require 'iced-error'
 {xor_buffers} = require '../base/util'
+{athrow} = require('iced-utils').util
 
 #=======================================================================================
 
@@ -234,12 +235,14 @@ exports.Account = class Account
   # Run passphrase stretching on the given salt/passphrase 
   # combination, without side-effects.
   _cpp2_derive_passphrase_components : ( { tsenc, salt, passphrase}, cb) -> 
+    esc = make_esc cb, "_cpp2_derive_passphrase_components"
     key = new Buffer passphrase, 'utf8'
     {C} = @config
     tsenc or= new triplesec.Encryptor { version : @triplesec_version }
-    await tsenc.resalt { salt }, defer keys
+    tsenc.set_key key
+    await tsenc.resalt { @extra_keymaterial, salt }, esc defer keys
     km = keys.extra
-    [pwh, _, _, lks_clienf_half ] = bufsplit km, [
+    [pwh, _, _, lks_client_half ] = bufsplit km, [
       C.pwh.derived_key_bytes,
       C.nacl.eddsa_secret_key_bytes,
       C.nacl.dh_secret_key_bytes,
@@ -252,20 +255,22 @@ exports.Account = class Account
   _cpp2_encrypt_lks_client_half : ( { me, client_half }, cb) ->
     ret = {}
     esc = make_esc cb, "_cpp2_encrypt_lks_client_half"
-    for deviceid, device of me.devices
-      for {kid,key_role} in device.keys when (key_role is @config.C.keys.key_role.ENCRYPTION)
+    for deviceid, {keys} of me.devices
+      for {kid,key_role} in keys when (key_role is @config.C.key.key_role.ENCRYPTION)
         await kbpgp.ukm.import_armored_public { armored : kid }, esc defer km
-        await kbpgp.kb.box { encrypt_for : kid, msg : client_half }, esc defer ret[kid]
+        await kbpgp.kb.box { encrypt_for : km, msg : client_half }, esc defer ret[kid]
     cb null, ret
 
   #---------------
 
   _cpp2_reencrypt_pgp_private_key : ( { me, old_ppc, new_ppc }, cb ) ->
     output = null
+    esc = make_esc cb, "_cpp2_reencrypt_pgp_private_key"
     if (key = me?.private_keys?.primary?.bundle)?
-      await KeyManager.import_from_p3skb { armored : key }, esc km
+      await KeyManager.import_from_p3skb { armored : key }, esc defer km
       await km.unlock_p3skb { tsenc : old_ppc.tsenc }, esc defer()
-      await km.export_private_to_server { tsenc : new_ppc.tsenc }, esc defer output
+      {tsenc,passphrase_generation} = new_ppc
+      await km.export_private_to_server {tsenc, passphrase_generation}, esc defer output
     cb null, output
 
   #---------------
@@ -278,7 +283,7 @@ exports.Account = class Account
 
   #
   # Use v2 of the passphrase change system, which changes the LKS mask
-  # and also encrypt the LKS client half for all known encryption devices.
+  # and also encrypts the LKS client half for all known encryption devices.
   # .. In addition to reencrypting PGP private keys...
   #
   # @param {string} old_pp The old passphrase
@@ -290,24 +295,32 @@ exports.Account = class Account
     old_ppc = new_ppc = null
     esc = make_esc cb, "change_passphrase_v2" 
 
-    await @config.request { method : "GET", endpoint : "me" }, esc defer me
+    await @config.request { method : "GET", endpoint : "me" }, esc defer res
+    unless (me = res?.body?.me)?
+      await athrow (new Error "Cannot load 'me' from server"), esc defer()
 
     salt = new Buffer me.basics.salt, 'hex'
 
     await @_cpp2_derive_passphrase_components { tsenc : @enc, salt, passphrase : old_pp }, esc defer old_ppc
     await @_cpp2_derive_passphrase_components { salt, passphrase : new_pp }, esc defer new_ppc
+
+    old_ppc.passphrase_generation = me.basics.passphrase_generation
+    new_ppc.passphrase_generation = old_ppc.passphrase_generation + 1
+
     await @_cpp2_encrypt_lks_client_half { me, client_half : new_ppc.lks_client_half }, esc defer lksch
     await @_cpp2_reencrypt_pgp_private_key { me, old_ppc, new_ppc}, esc defer private_key
     await @_cpp2_compute_lks_mask { old_ppc, new_ppc }, esc defer lks_mask
 
     params = {
-      pwh : new_ppc.pwh,
+      oldpwh : old_ppc.pwh.toString('hex'),
+      pwh : new_ppc.pwh.toString('hex'),
       pwh_version : @triplesec_version,
-      pwh_version : me.basics.passphrase_generation,
+      ppgen : old_ppc.passphrase_generation,
       lks_mask,
-      lks_client_half : JSON.stringify(lksch)
+      lks_client_half : JSON.stringify(lksch),
+      private_key
     }
-    await @config.request { method : "POST", endpoint : "passphrase/replace", params }, esc defer()
+    await @config.request { method : "POST", endpoint : "passphrase/replace", params }, esc defer res
 
     # Now reset our internal triplesec to the new one.
     @enc = new_ppc.tsenc
