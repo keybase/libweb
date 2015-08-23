@@ -311,7 +311,7 @@ exports.Account = class Account
 
     # Now reset our internal triplesec to the new one.
     @enc = new_ppc.tsenc
-    cb null
+    cb null, new_ppc
 
   #---------------
 
