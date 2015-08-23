@@ -317,7 +317,7 @@ exports.Account = class Account
       pwh_version : @triplesec_version,
       ppgen : old_ppc.passphrase_generation,
       lks_mask,
-      lks_client_half : JSON.stringify(lksch),
+      lks_client_halves : JSON.stringify(lksch),
       private_key
     }
     await @config.request { method : "POST", endpoint : "passphrase/replace", params }, esc defer res
