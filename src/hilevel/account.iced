@@ -4,6 +4,8 @@ kbpgp = require 'kbpgp'
 WordArray = triplesec.WordArray
 {KeyManager} = kbpgp
 {make_esc} = require 'iced-error'
+{xor_buffers} = require '../base/util'
+{athrow} = require('iced-utils').util
 
 #=======================================================================================
 
@@ -30,13 +32,18 @@ exports.Account = class Account
   constructor : ({@config}) ->
     {C} = @config
     @triplesec_version = @config.C.triplesec.version
-    @enc = new triplesec.Encryptor { version  : @triplesec_version }
     @nacl = {}
     @lks = {}
     @extra_keymaterial = C.pwh.derived_key_bytes +
       C.nacl.eddsa_secret_key_bytes +
       C.nacl.dh_secret_key_bytes +
       C.device.lks_client_half_bytes
+    @new_tsenc()
+
+  #---------------
+
+  new_tsenc : () -> 
+    @enc = new triplesec.Encryptor { version : @triplesec_version }
 
   #---------------
 
@@ -136,7 +143,8 @@ exports.Account = class Account
 
   get_public_pgp_key: (username, cb) ->
     err = ret = null
-    await @config.request { endpoint : "user/lookup", params : {username} }, defer err, res
+    fields = "public_keys"
+    await @config.request { endpoint : "user/lookup", params : {username, fields} }, defer err, res
     unless err?
       ret = res?.body?.them?.public_keys?.primary?.bundle
       err = new Error "Cannot find a public key for '#{@config.escape_user_content username}'" unless ret?
@@ -144,8 +152,20 @@ exports.Account = class Account
 
   #---------------
 
+  get_devices : ({username}, cb) ->
+    err = ret = null
+    fields = "devices"
+    await @config.request { endpoint : "user/lookup", params : { username, fields } }, defer err, res
+    unless err?
+      ret = res?.body?.them?.devices
+      err = new Error "Cannot find devices for '#{@config.escape_user_content username}" unless ret?
+    cb err, ret
+
+  #---------------
+
   get_public_pgp_keys : (username, cb) ->
     err = ret = null
+    fields = "public_keys"
     await @config.request { endpoint : "user/lookup", params : {username} }, defer err, res
     unless err?
       ret = res?.body?.them?.public_keys?.pgp_public_keys
@@ -154,7 +174,7 @@ exports.Account = class Account
 
   #---------------
 
-  get_unlocked_private_key : (pw, cb) ->
+  get_unlocked_private_primary_pgp_key : (pw, cb) ->
     esc = make_esc (err) -> cb err, null
     passphrase = new triplesec.Buffer pw
     await @config.request { method : "GET", endpoint : "me" }, esc defer res
@@ -163,7 +183,7 @@ exports.Account = class Account
     if bundle?
       tsenc = @get_tsenc_for_decryption { passphrase }
       await KeyManager.import_from_p3skb { raw: bundle }, esc defer sk
-      await sk.unlock_p3skb {   tsenc }, esc defer()
+      await sk.unlock_p3skb { tsenc }, esc defer()
     err = null
     unless sk?
       err = new Error "Failed to get and unlock your private key"
@@ -171,20 +191,28 @@ exports.Account = class Account
 
   #---------------
 
+  get_unlocked_private_pgp_keys : (pw, cb) ->
+    esc = make_esc cb, "get_unlocked_private_pgp_keys"
+    sks = []
+    passphrase = new triplesec.Buffer pw
+    tsenc = @get_tsenc_for_decryption { passphrase }
+    await @config.request { method : "GET", endpoint : "me" }, esc defer res
+    for sk in res?.body?.me?.private_keys?.all when (sk.type is @config.C.key.key_type.P3KSB_PRIVATE)
+      await KeyManager.import_from_p3skb { raw: bundle }, esc defer sk
+      await sk.unlock_p3skb { tsenc }, esc defer()
+      sks.push sk
+    cb err, sks
+
+  #---------------
+
   export_my_private_key: (pw, cb) ->
     esc = make_esc cb, "export_my_private_key"
     err = armored_private = null
     passphrase = new triplesec.Buffer pw
-    await @get_unlocked_private_key pw, esc defer sk
+    await @get_unlocked_private_primary_pgp_key pw, esc defer sk
     await sk.sign {}, esc defer()
     await sk.export_pgp_private_to_client {passphrase}, esc defer armored_private
     cb null, armored_private
-
-  #---------------
-
-  reencrypt_private_key : (sk, cb) ->
-    await sk.export_private_to_server { tsenc : @enc }, defer err, key
-    cb err, key
 
   #---------------
 
@@ -192,15 +220,111 @@ exports.Account = class Account
     params = {}
     esc = make_esc cb, "change_password"
     await @pw_to_login { pw : oldpw }, esc defer params.login_session, params.hmac_pwh, salt
-    await @get_unlocked_private_key oldpw, esc defer sk
+    await @get_unlocked_private_primary_pgp_key oldpw, esc defer sk
     await @gen_new_pwh { pw : newpw, salt }, esc defer params.pwh, params.pwh_version
     if sk?
       endpoint = "key/add"
-      await @reencrypt_private_key sk, esc defer params.private_key
+      await sk.export_private_to_server { tsenc : @enc }, esc defer params.private_key
     else
       endpoint = "account/update"
     await @config.request { method : "POST", endpoint, params }, esc defer res
     cb null, res?.body
+
+  #---------------
+
+  # Run passphrase stretching on the given salt/passphrase 
+  # combination, without side-effects.
+  _cpp2_derive_passphrase_components : ( { tsenc, salt, passphrase}, cb) -> 
+    esc = make_esc cb, "_cpp2_derive_passphrase_components"
+    key = new Buffer passphrase, 'utf8'
+    {C} = @config
+    tsenc or= new triplesec.Encryptor { version : @triplesec_version }
+    tsenc.set_key key
+    await tsenc.resalt { @extra_keymaterial, salt }, esc defer keys
+    km = keys.extra
+    [pwh, _, _, lks_client_half ] = bufsplit km, [
+      C.pwh.derived_key_bytes,
+      C.nacl.eddsa_secret_key_bytes,
+      C.nacl.dh_secret_key_bytes,
+      C.device.lks_client_half_bytes
+    ]
+    cb null, { tsenc, pwh, lks_client_half }
+
+  #---------------
+
+  _cpp2_encrypt_lks_client_half : ( { me, client_half }, cb) ->
+    ret = {}
+    esc = make_esc cb, "_cpp2_encrypt_lks_client_half"
+    for deviceid, {keys} of me.devices
+      for {kid,key_role} in keys when (key_role is @config.C.key.key_role.ENCRYPTION)
+        await kbpgp.ukm.import_armored_public { armored : kid }, esc defer km
+        await kbpgp.kb.box { encrypt_for : km, msg : client_half }, esc defer ret[kid]
+    cb null, ret
+
+  #---------------
+
+  _cpp2_reencrypt_pgp_private_key : ( { me, old_ppc, new_ppc }, cb ) ->
+    output = null
+    esc = make_esc cb, "_cpp2_reencrypt_pgp_private_key"
+    if (key = me?.private_keys?.primary?.bundle)?
+      await KeyManager.import_from_p3skb { armored : key }, esc defer km
+      await km.unlock_p3skb { tsenc : old_ppc.tsenc }, esc defer()
+      {tsenc,passphrase_generation} = new_ppc
+      await km.export_private_to_server {tsenc, passphrase_generation}, esc defer output
+    cb null, output
+
+  #---------------
+
+  _cpp2_compute_lks_mask : ( { old_ppc, new_ppc}, cb) ->
+    lks_mask = xor_buffers(old_ppc.lks_client_half, new_ppc.lks_client_half).toString('hex')
+    cb null, lks_mask
+
+  #---------------
+
+  #
+  # Use v2 of the passphrase change system, which changes the LKS mask
+  # and also encrypts the LKS client half for all known encryption devices.
+  # .. In addition to reencrypting PGP private keys...
+  #
+  # @param {string} old_pp The old passphrase
+  # @param {string} new_pp The new passphrase
+  # @param {callback<error>} cb Callback, will fire with an Error 
+  #   if the update didn't work. 
+  #
+  change_passphrase_v2 : ( {old_pp, new_pp}, cb) -> 
+    old_ppc = new_ppc = null
+    esc = make_esc cb, "change_passphrase_v2" 
+
+    await @config.request { method : "GET", endpoint : "me" }, esc defer res
+    unless (me = res?.body?.me)?
+      await athrow (new Error "Cannot load 'me' from server"), esc defer()
+
+    salt = new Buffer me.basics.salt, 'hex'
+
+    await @_cpp2_derive_passphrase_components { tsenc : @enc, salt, passphrase : old_pp }, esc defer old_ppc
+    await @_cpp2_derive_passphrase_components { salt, passphrase : new_pp }, esc defer new_ppc
+
+    old_ppc.passphrase_generation = me.basics.passphrase_generation
+    new_ppc.passphrase_generation = old_ppc.passphrase_generation + 1
+
+    await @_cpp2_encrypt_lks_client_half { me, client_half : new_ppc.lks_client_half }, esc defer lksch
+    await @_cpp2_reencrypt_pgp_private_key { me, old_ppc, new_ppc}, esc defer private_key
+    await @_cpp2_compute_lks_mask { old_ppc, new_ppc }, esc defer lks_mask
+
+    params = {
+      oldpwh : old_ppc.pwh.toString('hex'),
+      pwh : new_ppc.pwh.toString('hex'),
+      pwh_version : @triplesec_version,
+      ppgen : old_ppc.passphrase_generation,
+      lks_mask,
+      lks_client_halves : JSON.stringify(lksch),
+      private_key
+    }
+    await @config.request { method : "POST", endpoint : "passphrase/replace", params }, esc defer res
+
+    # Now reset our internal triplesec to the new one.
+    @enc = new_ppc.tsenc
+    cb null, new_ppc
 
   #---------------
 
