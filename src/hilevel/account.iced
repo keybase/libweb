@@ -42,7 +42,7 @@ exports.Account = class Account
 
   #---------------
 
-  new_tsenc : () -> 
+  new_tsenc : () ->
     @enc = new triplesec.Encryptor { version : @triplesec_version }
 
   #---------------
@@ -216,25 +216,9 @@ exports.Account = class Account
 
   #---------------
 
-  change_passphrase : (oldpw, newpw, cb) ->
-    params = {}
-    esc = make_esc cb, "change_password"
-    await @pw_to_login { pw : oldpw }, esc defer params.login_session, params.hmac_pwh, salt
-    await @get_unlocked_private_primary_pgp_key oldpw, esc defer sk
-    await @gen_new_pwh { pw : newpw, salt }, esc defer params.pwh, params.pwh_version
-    if sk?
-      endpoint = "key/add"
-      await sk.export_private_to_server { tsenc : @enc }, esc defer params.private_key
-    else
-      endpoint = "account/update"
-    await @config.request { method : "POST", endpoint, params }, esc defer res
-    cb null, res?.body
-
-  #---------------
-
-  # Run passphrase stretching on the given salt/passphrase 
+  # Run passphrase stretching on the given salt/passphrase
   # combination, without side-effects.
-  _cpp2_derive_passphrase_components : ( { tsenc, salt, passphrase}, cb) -> 
+  _cpp2_derive_passphrase_components : ( { tsenc, salt, passphrase}, cb) ->
     esc = make_esc cb, "_cpp2_derive_passphrase_components"
     key = new Buffer passphrase, 'utf8'
     {C} = @config
@@ -288,12 +272,12 @@ exports.Account = class Account
   #
   # @param {string} old_pp The old passphrase
   # @param {string} new_pp The new passphrase
-  # @param {callback<error>} cb Callback, will fire with an Error 
-  #   if the update didn't work. 
+  # @param {callback<error>} cb Callback, will fire with an Error
+  #   if the update didn't work.
   #
-  change_passphrase_v2 : ( {old_pp, new_pp}, cb) -> 
+  change_passphrase : ( {old_pp, new_pp}, cb) ->
     old_ppc = new_ppc = null
-    esc = make_esc cb, "change_passphrase_v2" 
+    esc = make_esc cb, "change_passphrase"
 
     await @config.request { method : "GET", endpoint : "me" }, esc defer res
     unless (me = res?.body?.me)?
