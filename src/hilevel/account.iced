@@ -247,15 +247,18 @@ exports.Account = class Account
 
   #---------------
 
-  _cpp2_reencrypt_pgp_private_key : ( { me, old_ppc, new_ppc }, cb ) ->
-    output = null
+  _cpp2_reencrypt_pgp_private_keys : ( { me, old_ppc, new_ppc }, cb ) ->
+    outputs = []
     esc = make_esc cb, "_cpp2_reencrypt_pgp_private_key"
-    if (key = me?.private_keys?.primary?.bundle)?
-      await KeyManager.import_from_p3skb { armored : key }, esc defer km
+    console.log me.private_keys
+    for {bundle} in (me?.private_keys?.all or [])
+      await KeyManager.import_from_p3skb { armored : bundle }, esc defer km
       await km.unlock_p3skb { tsenc : old_ppc.tsenc }, esc defer()
       {tsenc,passphrase_generation} = new_ppc
       await km.export_private_to_server {tsenc, passphrase_generation}, esc defer output
-    cb null, output
+      outputs.push output
+    console.log outputs
+    cb null, outputs
 
   #---------------
 
@@ -292,7 +295,7 @@ exports.Account = class Account
     new_ppc.passphrase_generation = old_ppc.passphrase_generation + 1
 
     await @_cpp2_encrypt_lks_client_half { me, client_half : new_ppc.lks_client_half }, esc defer lksch
-    await @_cpp2_reencrypt_pgp_private_key { me, old_ppc, new_ppc}, esc defer private_key
+    await @_cpp2_reencrypt_pgp_private_keys { me, old_ppc, new_ppc}, esc defer private_keys
     await @_cpp2_compute_lks_mask { old_ppc, new_ppc }, esc defer lks_mask
 
     params = {
@@ -302,7 +305,7 @@ exports.Account = class Account
       ppgen : old_ppc.passphrase_generation,
       lks_mask,
       lks_client_halves : JSON.stringify(lksch),
-      private_key
+      private_keys
     }
     await @config.request { method : "POST", endpoint : "passphrase/replace", params }, esc defer res
 
