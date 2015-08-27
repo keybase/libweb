@@ -250,14 +250,12 @@ exports.Account = class Account
   _cpp2_reencrypt_pgp_private_keys : ( { me, old_ppc, new_ppc }, cb ) ->
     outputs = []
     esc = make_esc cb, "_cpp2_reencrypt_pgp_private_key"
-    console.log me.private_keys
     for {bundle} in (me?.private_keys?.all or [])
       await KeyManager.import_from_p3skb { armored : bundle }, esc defer km
       await km.unlock_p3skb { tsenc : old_ppc.tsenc }, esc defer()
       {tsenc,passphrase_generation} = new_ppc
       await km.export_private_to_server {tsenc, passphrase_generation}, esc defer output
       outputs.push output
-    console.log outputs
     cb null, outputs
 
   #---------------

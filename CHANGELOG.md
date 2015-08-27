@@ -1,3 +1,7 @@
+## 1.0.3 (2015-08-27)
+
+Post multiple private keys via the private_keys parameter
+
 ## 1.0.2 (2015-08-23)
 
 Retire passphrase v1 and rename v2 to v1.
