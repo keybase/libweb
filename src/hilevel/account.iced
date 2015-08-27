@@ -218,8 +218,8 @@ exports.Account = class Account
 
   # Run passphrase stretching on the given salt/passphrase
   # combination, without side-effects.
-  _cpp2_derive_passphrase_components : ( { tsenc, salt, passphrase}, cb) ->
-    esc = make_esc cb, "_cpp2_derive_passphrase_components"
+  _change_passphrase_derive_passphrase_components : ( { tsenc, salt, passphrase}, cb) ->
+    esc = make_esc cb, "_change_passphrase_derive_passphrase_components"
     key = new Buffer passphrase, 'utf8'
     {C} = @config
     tsenc or= new triplesec.Encryptor { version : @triplesec_version }
@@ -236,9 +236,9 @@ exports.Account = class Account
 
   #---------------
 
-  _cpp2_encrypt_lks_client_half : ( { me, client_half }, cb) ->
+  _change_passphrase_encrypt_lks_client_half : ( { me, client_half }, cb) ->
     ret = {}
-    esc = make_esc cb, "_cpp2_encrypt_lks_client_half"
+    esc = make_esc cb, "_change_passphrase_encrypt_lks_client_half"
     for deviceid, {keys} of me.devices
       for {kid,key_role} in keys when (key_role is @config.C.key.key_role.ENCRYPTION)
         await kbpgp.ukm.import_armored_public { armored : kid }, esc defer km
@@ -247,12 +247,12 @@ exports.Account = class Account
 
   #---------------
 
-  _cpp2_reencrypt_pgp_private_keys : ( { me, old_ppc, new_ppc }, cb ) ->
+  _change_passphrase_reencrypt_pgp_private_keys : ( { me, old_ppc, new_ppc }, cb ) ->
     outputs = []
-    esc = make_esc cb, "_cpp2_reencrypt_pgp_private_key"
+    esc = make_esc cb, "_change_passphrase_reencrypt_pgp_private_key"
     for {bundle} in (me?.private_keys?.all or [])
       await KeyManager.import_from_p3skb { armored : bundle }, esc defer km
-      await km.unlock_p3skb { tsenc : old_ppc.tsenc }, esc defer()
+      await km.unlock_p3skb { tsenc : old_ppc.tsenc.clone() }, esc defer()
       {tsenc,passphrase_generation} = new_ppc
       await km.export_private_to_server {tsenc, passphrase_generation}, esc defer output
       outputs.push output
@@ -260,7 +260,7 @@ exports.Account = class Account
 
   #---------------
 
-  _cpp2_compute_lks_mask : ( { old_ppc, new_ppc}, cb) ->
+  _change_passphrase_compute_lks_mask : ( { old_ppc, new_ppc}, cb) ->
     lks_mask = xor_buffers(old_ppc.lks_client_half, new_ppc.lks_client_half).toString('hex')
     cb null, lks_mask
 
@@ -286,15 +286,15 @@ exports.Account = class Account
 
     salt = new Buffer me.basics.salt, 'hex'
 
-    await @_cpp2_derive_passphrase_components { tsenc : @enc, salt, passphrase : old_pp }, esc defer old_ppc
-    await @_cpp2_derive_passphrase_components { salt, passphrase : new_pp }, esc defer new_ppc
+    await @_change_passphrase_derive_passphrase_components { tsenc : @enc, salt, passphrase : old_pp }, esc defer old_ppc
+    await @_change_passphrase_derive_passphrase_components { salt, passphrase : new_pp }, esc defer new_ppc
 
     old_ppc.passphrase_generation = me.basics.passphrase_generation
     new_ppc.passphrase_generation = old_ppc.passphrase_generation + 1
 
-    await @_cpp2_encrypt_lks_client_half { me, client_half : new_ppc.lks_client_half }, esc defer lksch
-    await @_cpp2_reencrypt_pgp_private_keys { me, old_ppc, new_ppc}, esc defer private_keys
-    await @_cpp2_compute_lks_mask { old_ppc, new_ppc }, esc defer lks_mask
+    await @_change_passphrase_encrypt_lks_client_half { me, client_half : new_ppc.lks_client_half }, esc defer lksch
+    await @_change_passphrase_reencrypt_pgp_private_keys { me, old_ppc, new_ppc}, esc defer private_keys
+    await @_change_passphrase_compute_lks_mask { old_ppc, new_ppc }, esc defer lks_mask
 
     params = {
       oldpwh : old_ppc.pwh.toString('hex'),
