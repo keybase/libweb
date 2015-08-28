@@ -249,6 +249,7 @@ exports.Account = class Account
 
   _change_passphrase_reencrypt_pgp_private_keys : ( { me, old_ppc, new_ppc, exclude_kids }, cb ) ->
     outputs = []
+    exclude_kids or= []
     esc = make_esc cb, "_change_passphrase_reencrypt_pgp_private_key"
     for {kid,bundle} in (me?.private_keys?.all or []) when not (kid in exclude_kids)
       await KeyManager.import_from_p3skb { armored : bundle }, esc defer km
