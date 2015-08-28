@@ -20,10 +20,15 @@ exports.Request = class Request extends base.Request
     params = {
       type : inargs.method
       url : inargs.url
-      data : inargs.params
       headers : headers
       dataType : "json"
     }
+
+    if inargs.method is 'POST'
+      params.data = JSON.stringify(inargs.params)
+      params.contentType = "application/json"
+    else
+      params.data = inargs.params
 
     xhr = @jQuery.ajax(params)
 
