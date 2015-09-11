@@ -1,3 +1,7 @@
+## 1.0.4
+
+Be able to name private keys to export
+
 ## 1.0.3 (2015-08-27)
 
 Post multiple private keys via the private_keys parameter

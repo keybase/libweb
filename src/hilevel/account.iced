@@ -175,10 +175,23 @@ exports.Account = class Account
   #---------------
 
   get_unlocked_private_primary_pgp_key : (pw, cb) ->
+    @get_unlocked_private_pgp_key { pw }, cb
+
+  #---------------
+
+  get_unlocked_private_pgp_key : ({pw, kid}, cb) ->
     esc = make_esc (err) -> cb err, null
     passphrase = new triplesec.Buffer pw
     await @config.request { method : "GET", endpoint : "me" }, esc defer res
-    bundle = res?.body?.me?.private_keys?.primary?.bundle
+
+    bundle = null
+
+    if kid?
+      for sk in res?.body?.me?.private_keys?.all when sk.kid is kid
+        break if (bundle = sk.bundle)?
+    else
+      bundle = res?.body?.me?.private_keys?.primary?.bundle
+
     sk = err = null
     if bundle?
       tsenc = @get_tsenc_for_decryption { passphrase }
@@ -198,18 +211,18 @@ exports.Account = class Account
     tsenc = @get_tsenc_for_decryption { passphrase }
     await @config.request { method : "GET", endpoint : "me" }, esc defer res
     for sk in res?.body?.me?.private_keys?.all when (sk.type is @config.C.key.key_type.P3KSB_PRIVATE)
-      await KeyManager.import_from_p3skb { raw: bundle }, esc defer sk
-      await sk.unlock_p3skb { tsenc }, esc defer()
+      await KeyManager.import_from_p3skb { raw: sk.bundle }, esc defer sk
+      await sk.unlock_p3skb { tsenc : tsenc.clone() }, esc defer()
       sks.push sk
     cb err, sks
 
   #---------------
 
-  export_my_private_key: (pw, cb) ->
+  export_my_private_key: ({kid,pw}, cb) ->
     esc = make_esc cb, "export_my_private_key"
     err = armored_private = null
     passphrase = new triplesec.Buffer pw
-    await @get_unlocked_private_primary_pgp_key pw, esc defer sk
+    await @get_unlocked_private_pgp_key {kid, pw }, esc defer sk
     await sk.sign {}, esc defer()
     await sk.export_pgp_private_to_client {passphrase}, esc defer armored_private
     cb null, armored_private
