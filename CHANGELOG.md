@@ -1,4 +1,4 @@
-## 1.0.4
+## 1.0.4 (2015-09-14)
 
 Be able to name private keys to export
 
