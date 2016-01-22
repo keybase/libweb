@@ -1,3 +1,8 @@
+## 1.0.5 (2016-01-23)
+
+Don't use Browserify's buffer slice method, since it's sometimes
+broken.
+
 ## 1.0.4 (2015-09-14)
 
 Be able to name private keys to export

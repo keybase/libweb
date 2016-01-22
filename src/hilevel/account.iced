@@ -9,12 +9,21 @@ WordArray = triplesec.WordArray
 
 #=======================================================================================
 
+# There's historically been trouble with the slice() operator on Browserify's
+# buffers, so just do the safe/slow/stupid thing.
+myslice = (buf, s, e) ->
+  l = e - s
+  out = new Buffer l
+  for i in [0...l]
+    out.writeUInt8(buf.readUInt8(i+s), i)
+  out
+
 bufsplit = (buf, lens) ->
   s = 0
   ret = []
   for l in lens
     e = s+l
-    ret.push buf[s...e]
+    ret.push myslice(buf,s,e)
     s = e
   return ret
 
