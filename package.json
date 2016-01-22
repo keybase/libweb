@@ -1,6 +1,6 @@
 {
   "name": "keybase-libweb",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Build keybase Web clients in the browser or test clients in Node",
   "main": "lib/hilevel/index.js",
   "scripts": {
