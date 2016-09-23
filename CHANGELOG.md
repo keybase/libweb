@@ -1,3 +1,7 @@
+## 1.0.6 (2016-09-23)
+
+Support for PDPKA v4 and v5 logins
+
 ## 1.0.5 (2016-01-23)
 
 Don't use Browserify's buffer slice method, since it's sometimes
