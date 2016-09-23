@@ -143,21 +143,36 @@ exports.Account = class Account
 
   #---------------
 
-  pw_to_login : ({pw, email_or_username, hostname}, cb) ->
+  pw_to_login : ({pw, email_or_username, hostname, uid}, cb) ->
     esc = make_esc cb, "pw_to_login"
     login_session = hmac_pwh = null
-    await @pw_to_pwh { pw, email_or_username }, esc defer pwh, pwh_version, salt, login_session_b64, pdpka4_km, pdpka5_km
+    await @pw_to_pwh { pw, email_or_username, uid }, esc defer pwh, pwh_version, salt, login_session_b64, pdpka4_km, pdpka5_km
+    await @pwh_to_login_params { hostname, login_session_b64, pwh, email_or_username, uid, pdpka5_km, pdpka4_km }, esc defer { login_session, hmac_pwh, pdpka4, pdpka5 }
+    cb null, login_session, hmac_pwh, salt, pdpka4, pdpka5
+
+  #---------------
+
+  pwh_to_login_params : ({hostname, login_session_b64, pwh, email_or_username, uid, pdpka4_km, pdpka5_km}, cb) ->
+    esc = make_esc cb, "pwh_to_login_params"
 
     login_session = new triplesec.Buffer login_session_b64, 'base64'
     # Make a new HMAC-SHA512'er, and the key is the output of the
     hmac = new triplesec.HMAC(WordArray.from_buffer(pwh))
     hmac_pwh = hmac.update(WordArray.from_buffer(login_session)).finalize().to_hex()
     session = login_session = login_session_b64
-    user = email_or_username_to_user { email_or_username }
+    user = to_user { email_or_username, uid }
     await generate_pdpka { km : pdpka4_km, user, session, hostname }, esc defer pdpka4
     await generate_pdpka { km : pdpka5_km, user, session, hostname }, esc defer pdpka5
+    cb null, { login_session, hmac_pwh, pdpka4, pdpka5  }
 
-    cb null, login_session, hmac_pwh, salt, pdpka4, pdpka5
+  #---------------
+
+  _change_passphrase_compute_login : ({hostname, uid, login_session_b64, pwh, eddsa}, cb) ->
+    esc = make_esc cb, "_change_passphrase_compute_login"
+    await secret32_to_signing_km { secret32 : pwh }, esc defer pdpka4_km
+    await secret32_to_signing_km { secret32 : eddsa }, esc defer pdpka5_km
+    await @pwh_to_login_params { hostname, login_session_b64, uid, pwh, pdpka4_km, pdpka5_km }, esc defer { hmac_pwh, pdpka4, pdpka5 }
+    cb null, hmac_pwh, pdpka4, pdpka5
 
   #---------------
 
@@ -259,13 +274,13 @@ exports.Account = class Account
     tsenc.set_key key
     await tsenc.resalt { @extra_keymaterial, salt }, esc defer keys
     km = keys.extra
-    [pwh, _, _, lks_client_half ] = bufsplit km, [
+    [pwh, eddsa, _, lks_client_half ] = bufsplit km, [
       C.pwh.derived_key_bytes,
       C.nacl.eddsa_secret_key_bytes,
       C.nacl.dh_secret_key_bytes,
       C.device.lks_client_half_bytes
     ]
-    cb null, { tsenc, pwh, lks_client_half }
+    cb null, { tsenc, pwh, lks_client_half, eddsa }
 
   #---------------
 
@@ -312,12 +327,13 @@ exports.Account = class Account
   # @param {callback<error>} cb Callback, will fire with an Error
   #   if the update didn't work.
   #
-  change_passphrase : ( {old_pp, new_pp, exclude_kids}, cb) ->
+  change_passphrase : ( {old_pp, new_pp, exclude_kids, hostname}, cb) ->
     old_ppc = new_ppc = null
     esc = make_esc cb, "change_passphrase"
 
-    await @config.request { method : "GET", endpoint : "me" }, esc defer res
-    unless (me = res?.body?.me)?
+    params = { make_login_session : 1 }
+    await @config.request { method : "GET", endpoint : "me", params }, esc defer res
+    unless (me = res?.body?.me)? and (login_session_b64 = res?.body?.login_session)?
       await athrow (new Error "Cannot load 'me' from server"), esc defer()
 
     salt = new Buffer me.basics.salt, 'hex'
@@ -325,15 +341,22 @@ exports.Account = class Account
     await @_change_passphrase_derive_passphrase_components { tsenc : @enc, salt, passphrase : old_pp }, esc defer old_ppc
     await @_change_passphrase_derive_passphrase_components { salt, passphrase : new_pp }, esc defer new_ppc
 
+    await @_change_passphrase_compute_login { uid : me.id, login_session_b64, pwh : old_ppc.pwh, eddsa : old_ppc.eddsa, hostname }, esc defer hmac_pwh, old_pdpka4, old_pdpka5
+
     old_ppc.passphrase_generation = me.basics.passphrase_generation
     new_ppc.passphrase_generation = old_ppc.passphrase_generation + 1
 
     await @_change_passphrase_encrypt_lks_client_half { me, client_half : new_ppc.lks_client_half }, esc defer lksch
     await @_change_passphrase_reencrypt_pgp_private_keys { me, old_ppc, new_ppc, exclude_kids}, esc defer private_keys
     await @_change_passphrase_compute_lks_mask { old_ppc, new_ppc }, esc defer lks_mask
+    await secret32_to_signing_kid { secret32 : new_ppc.eddsa }, esc defer pdpka5_kid
 
     params = {
-      oldpwh : old_ppc.pwh.toString('hex'),
+      hmac_pwh : hmac_pwh
+      old_pdpka4 : old_pdpka4
+      old_pdpka5 : old_pdpka5
+      pdpka5_kid : pdpka5_kid
+      login_session : login_session_b64
       pwh : new_ppc.pwh.toString('hex'),
       pwh_version : @triplesec_version,
       ppgen : old_ppc.passphrase_generation,
@@ -400,10 +423,12 @@ exports.generate_pdpka = generate_pdpka = ({km, session, user, hostname}, cb) ->
 
 #=======================================================================================
 
-email_or_username_to_user = ({email_or_username}) ->
+to_user = ({email_or_username, uid}) ->
   user = {}
-  if email_or_username.indexOf('@') >= 0 then user.email = email_or_username
-  else user.username = email_or_username
+  if uid? then user.uid = uid
+  if email_or_username?
+    if email_or_username.indexOf('@') >= 0 then user.email = email_or_username
+    else user.username = email_or_username
   user
 
 #=======================================================================================
