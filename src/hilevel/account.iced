@@ -6,6 +6,7 @@ WordArray = triplesec.WordArray
 {make_esc} = require 'iced-error'
 {xor_buffers} = require '../base/util'
 {athrow} = require('iced-utils').util
+proofs = require 'keybase-proofs'
 
 #=======================================================================================
 
@@ -87,18 +88,20 @@ exports.Account = class Account
       C.device.lks_client_half_bytes
     ]
     if encoding? then pwh = pwh.toString encoding
-    cb pwh
+    cb pwh, @nacl.eddsa
 
   #---------------
 
   fix_signup_bundle : (bundle, cb) ->
+    err = null
     nb = triplesec.V[@triplesec_version].salt_size
     await kbpgp.rand.SRF().random_bytes nb, defer salt
-    await @scrypt_hash_passphrase { key : bundle.pw, salt, encoding : 'hex' }, defer bundle.pwh
+    await @scrypt_hash_passphrase { key : bundle.pw, salt, encoding : 'hex' }, defer bundle.pwh, secret32_eddsa
+    await secret32_to_signing_kid { secret32 : secret32_eddsa }, defer err, bundle.pdpka5_kid
     bundle.salt = salt.toString 'hex'
     bundle.pwh_version = @triplesec_version
     delete bundle.pw
-    cb()
+    cb err
 
   #---------------
 
@@ -123,30 +126,38 @@ exports.Account = class Account
   #    an error (if one happened), a Buffer with the pwh, an int for what version,
   #    and a buffer with the salt.
   pw_to_pwh : ({pw, email_or_username, uid}, cb) ->
+    esc = make_esc cb, "pw_to_pwh"
     err = pwh = pwh_version = salt = null
-    await @config.request { method : "GET", endpoint : 'getsalt', params : { email_or_username, uid } }, defer err, res
+    params = { email_or_username, uid, pdpka_login : true }
+    await @config.request { method : "GET", endpoint : 'getsalt', params }, esc defer res
     if err? then # noop
     else if not ((got = res?.body?.pwh_version) is @triplesec_version)
       err = new Error "Can only support PW hash version #{@triplesec_version}; got #{got} for #{@config.escape_user_content email_or_username}"
     else
       salt = new triplesec.Buffer res.body.salt, 'hex'
-      await @scrypt_hash_passphrase { salt, key : pw, encoding : null }, defer pwh
+      await @scrypt_hash_passphrase { salt, key : pw, encoding : null }, defer pwh, secret32_eddsa
+      await secret32_to_signing_km { secret32 : pwh }, esc defer pdpka4_km
+      await secret32_to_signing_km { secret32 : secret32_eddsa }, esc defer pdpka5_km
       pwh_version = @triplesec_version
-    cb err, pwh, pwh_version, salt, res?.body?.login_session
+    cb err, pwh, pwh_version, salt, res?.body?.login_session, pdpka4_km, pdpka5_km
 
   #---------------
 
-  pw_to_login : ({pw, email_or_username}, cb) ->
+  pw_to_login : ({pw, email_or_username, hostname}, cb) ->
+    esc = make_esc cb, "pw_to_login"
     login_session = hmac_pwh = null
-    await @pw_to_pwh { pw, email_or_username }, defer err, pwh, pwh_version, salt, login_session_b64
-    unless err?
-      login_session = new triplesec.Buffer login_session_b64, 'base64'
-      # Make a new HMAC-SHA512'er, and the key is the output of the
-      hmac = new triplesec.HMAC(WordArray.from_buffer(pwh))
-      hmac_pwh = hmac.update(WordArray.from_buffer(login_session)).finalize().to_hex()
-      login_session = login_session_b64
+    await @pw_to_pwh { pw, email_or_username }, esc defer pwh, pwh_version, salt, login_session_b64, pdpka4_km, pdpka5_km
 
-    cb err, login_session, hmac_pwh, salt
+    login_session = new triplesec.Buffer login_session_b64, 'base64'
+    # Make a new HMAC-SHA512'er, and the key is the output of the
+    hmac = new triplesec.HMAC(WordArray.from_buffer(pwh))
+    hmac_pwh = hmac.update(WordArray.from_buffer(login_session)).finalize().to_hex()
+    session = login_session = login_session_b64
+    user = email_or_username_to_user { email_or_username }
+    await generate_pdpka { km : pdpka4_km, user, session, hostname }, esc defer pdpka4
+    await generate_pdpka { km : pdpka5_km, user, session, hostname }, esc defer pdpka5
+
+    cb null, login_session, hmac_pwh, salt, pdpka4, pdpka5
 
   #---------------
 
@@ -356,6 +367,44 @@ exports.Account = class Account
     gen = kbpgp.kb.EncKeyManager.generate
     await gen { seed : @nacl.dh, split : true }, defer err, km
     cb err, km
+
+#=======================================================================================
+
+exports.secret32_to_signing_km = secret32_to_signing_km = ({secret32}, cb) ->
+  ret = err = null
+  await kbpgp.kb.KeyManager.generate { seed : secret32, split : false }, defer err, km
+  cb err, km
+
+#=======================================================================================
+
+exports.secret32_to_signing_kid = secret32_to_signing_kid = ({secret32}, cb) ->
+  ret = err = null
+  await secret32_to_signing_km { secret32 }, defer err, km
+  unless err?
+    await km.export_public {}, defer err, kid
+  cb err, kid, km
+
+#=======================================================================================
+
+exports.generate_pdpka = generate_pdpka = ({km, session, user, hostname}, cb) ->
+  await kbpgp.rand.SRF().random_bytes 16, defer nonce
+  arg =
+    sig_eng : km.make_sig_eng()
+    host : hostname
+    user : local : user
+  arg.nonce = nonce if nonce?
+  arg.session = session if session?
+  eng = new proofs.Auth arg
+  await eng.generate defer err, sig
+  cb err, sig?.armored
+
+#=======================================================================================
+
+email_or_username_to_user = ({email_or_username}) ->
+  user = {}
+  if email_or_username.indexOf('@') >= 0 then user.email = email_or_username
+  else user.username = email_or_username
+  user
 
 #=======================================================================================
 

@@ -24,6 +24,9 @@ exports.Request = class Request extends base.Request
     switch method
       when 'GET', 'DELETE'
         uri.query = inargs.params
+        # For some reason, node request doesn't do this on its own, it leaves
+        # out the query parameters. So this formatting fixes it.
+        req_args.uri = @libs.url.format uri
       when 'POST'
         req_args.body = inargs.params
 
