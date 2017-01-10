@@ -1,3 +1,11 @@
+## 1.0.8 (2017-01-10)
+
+Support for PDPKA passphrase resets
+
+## 1.0.7 (2016)
+
+Support for PDPKA passphrase changes
+
 ## 1.0.6 (2016-09-23)
 
 Support for PDPKA v4 and v5 logins
