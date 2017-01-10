@@ -315,6 +315,26 @@ exports.Account = class Account
 
   #---------------
 
+  # Reset the user's passphrase given then authentication link 'l'.
+  reset_passphrase : ( {new_pp, uid, hostname, l}, cb) ->
+    esc = make_esc cb, "reset_passphrase"
+    params = { uid }
+    await @config.request { method : "GET", endpoint : 'getsalt', params }, esc defer res
+    salt = new triplesec.Buffer res.body.salt, 'hex'
+    await @scrypt_hash_passphrase { salt, key : new_pp, encoding : null }, defer pwh, secret32_eddsa
+    await secret32_to_signing_kid { secret32 : pwh }, esc defer pdpka4_kid
+    await secret32_to_signing_kid { secret32 : secret32_eddsa }, esc defer pdpka5_kid
+
+    params = {
+      pdpka4_kid : pdpka4_kid
+      pdpka5_kid : pdpka5_kid
+      l : l
+    }
+    await @config.request { method : "POST", endpoint : "passphrase/reset", params }, esc defer res
+    cb null
+
+  #---------------
+
   #
   # Use v2 of the passphrase change system, which changes the LKS mask
   # and also encrypts the LKS client half for all known encryption devices.
