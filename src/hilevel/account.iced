@@ -230,8 +230,8 @@ exports.Account = class Account
     sk = err = null
     if bundle?
       tsenc = @get_tsenc_for_decryption { passphrase }
-      await KeyManager.import_from_p3skb { raw: bundle }, esc defer sk
-      await sk.unlock_p3skb { tsenc }, esc defer()
+      await KeyManager.import_from_p3skb { raw: bundle, no_check_keys: true, time_travel: true }, esc defer sk
+      await sk.unlock_p3skb { tsenc, no_check_keys: true, time_travel: true }, esc defer()
     err = null
     unless sk?
       err = new Error "Failed to get and unlock your private key"
