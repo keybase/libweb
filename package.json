@@ -29,7 +29,7 @@
     "iced-error": "0.0.9",
     "iced-runtime": "^1.0.2",
     "iced-utils": "^0.1.23",
-    "kbpgp": "^2.0.58",
+    "kbpgp": "^2.0.73",
     "keybase-proofs": "^2.0.52",
     "request": "^2.61.0",
     "triplesec": "^3.0.25"
