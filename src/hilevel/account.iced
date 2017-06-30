@@ -214,7 +214,7 @@ exports.Account = class Account
 
   #---------------
 
-  get_unlocked_private_pgp_key : ({pw, kid}, cb) ->
+  get_unlocked_private_pgp_key : ({pw, kid, no_check_keys, time_travel}, cb) ->
     esc = make_esc (err) -> cb err, null
     passphrase = new triplesec.Buffer pw
     await @config.request { method : "GET", endpoint : "me" }, esc defer res
@@ -230,8 +230,8 @@ exports.Account = class Account
     sk = err = null
     if bundle?
       tsenc = @get_tsenc_for_decryption { passphrase }
-      await KeyManager.import_from_p3skb { raw: bundle, no_check_keys: true, time_travel: true }, esc defer sk
-      await sk.unlock_p3skb { tsenc, no_check_keys: true, time_travel: true }, esc defer()
+      await KeyManager.import_from_p3skb { raw: bundle, no_check_keys, time_travel }, esc defer sk
+      await sk.unlock_p3skb { tsenc, no_check_keys, time_travel }, esc defer()
     err = null
     unless sk?
       err = new Error "Failed to get and unlock your private key"
@@ -253,11 +253,11 @@ exports.Account = class Account
 
   #---------------
 
-  export_my_private_key: ({kid,pw}, cb) ->
+  export_my_private_key: ({kid, pw, no_check_keys, time_travel}, cb) ->
     esc = make_esc cb, "export_my_private_key"
     err = armored_private = null
     passphrase = new triplesec.Buffer pw
-    await @get_unlocked_private_pgp_key {kid, pw }, esc defer sk
+    await @get_unlocked_private_pgp_key { kid, pw, no_check_keys, time_travel }, esc defer sk
     await sk.sign {}, esc defer()
     await sk.export_pgp_private_to_client {passphrase}, esc defer armored_private
     cb null, armored_private
