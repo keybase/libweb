@@ -1,3 +1,8 @@
+## 1.0.9 (2017-07-10)
+
+New parameters in `export_my_private_key` function: `no_check_keys` and
+`time_travel`. Ability to load and export expired key.
+
 ## 1.0.8 (2017-01-10)
 
 Support for PDPKA passphrase resets
