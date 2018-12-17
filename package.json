@@ -1,6 +1,6 @@
 {
   "name": "keybase-libweb",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Build keybase Web clients in the browser or test clients in Node",
   "main": "lib/hilevel/index.js",
   "scripts": {
@@ -32,6 +32,6 @@
     "kbpgp": "^2.0.73",
     "keybase-proofs": "^2.0.52",
     "request": "^2.61.0",
-    "triplesec": "^3.0.25"
+    "triplesec": "^4.0.1"
   }
 }
