@@ -1,3 +1,7 @@
+## 1.0.11 (2018-12-17)
+
+Update triplesec to version 4.
+
 ## 1.0.9 (2017-07-10)
 
 New parameters in `export_my_private_key` function: `no_check_keys` and
