@@ -1,3 +1,7 @@
+## 1.0.12 (2018-12-25)
+
+Upgrade browserify
+
 ## 1.0.11 (2018-12-17)
 
 Update triplesec to version 4.
