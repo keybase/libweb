@@ -6,7 +6,7 @@ exports.xor_buffers = xor_buffers = (buffers...) ->
   if buffers.length < 2
     throw new Error "need 2 or more buffers"
   l = buffers[0].length
-  res = new Buffer (0 for [0...l])
+  res = Buffer.alloc(l)
   for b,i in buffers
     if b.length isnt l
       err = new Error "Buffer #{i} is length #{b.length} != #{l}"

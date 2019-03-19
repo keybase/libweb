@@ -14,7 +14,7 @@ proofs = require 'keybase-proofs'
 # buffers, so just do the safe/slow/stupid thing.
 myslice = (buf, s, e) ->
   l = e - s
-  out = new Buffer l
+  out = Buffer.alloc l
   for i in [0...l]
     out.writeUInt8(buf.readUInt8(i+s), i)
   out
@@ -268,7 +268,7 @@ exports.Account = class Account
   # combination, without side-effects.
   _change_passphrase_derive_passphrase_components : ( { tsenc, salt, passphrase}, cb) ->
     esc = make_esc cb, "_change_passphrase_derive_passphrase_components"
-    key = new Buffer passphrase, 'utf8'
+    key = Buffer.from passphrase, 'utf8'
     {C} = @config
     tsenc or= new triplesec.Encryptor { version : @triplesec_version }
     tsenc.set_key key
@@ -356,7 +356,7 @@ exports.Account = class Account
     unless (me = res?.body?.me)? and (login_session_b64 = res?.body?.login_session)?
       await athrow (new Error "Cannot load 'me' from server"), esc defer()
 
-    salt = new Buffer me.basics.salt, 'hex'
+    salt = Buffer.from me.basics.salt, 'hex'
 
     await @_change_passphrase_derive_passphrase_components { tsenc : @enc, salt, passphrase : old_pp }, esc defer old_ppc
     await @_change_passphrase_derive_passphrase_components { salt, passphrase : new_pp }, esc defer new_ppc
