@@ -1,3 +1,7 @@
+## 1.0.13 (2019-03-21)
+
+Upgrade from (new Buffer)
+
 ## 1.0.12 (2018-12-25)
 
 Upgrade browserify
