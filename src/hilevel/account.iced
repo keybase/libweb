@@ -331,7 +331,7 @@ exports.Account = class Account
       l : l
     }
     await @config.request { method : "POST", endpoint : "passphrase/reset", params }, esc defer res
-    cb null
+    cb null, res
 
   #---------------
 

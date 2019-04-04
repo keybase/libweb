@@ -1,3 +1,6 @@
+## 1.0.14 (2019-04-04)
+Return api response in `reset_passphrase`
+
 ## 1.0.13 (2019-03-21)
 
 Upgrade from (new Buffer)
