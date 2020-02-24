@@ -1,3 +1,7 @@
+## 1.0.15 (2020-02-23)
+
+- update old deps and use packet hash when making NaCl sigs
+
 ## 1.0.14 (2019-04-04)
 Return api response in `reset_passphrase`
 
