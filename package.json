@@ -26,12 +26,12 @@
     "icsify": "^0.7.0"
   },
   "dependencies": {
-    "iced-error": "0.0.9",
+    "iced-error": "^0.0.13",
     "iced-runtime": "^1.0.2",
     "iced-utils": "^0.1.23",
     "kbpgp": "^2.1.12",
     "keybase-proofs": "^2.3.20",
     "request": "^2.61.0",
-    "triplesec": "^4.0.1"
+    "triplesec": "^4.0.3"
   }
 }
