@@ -438,7 +438,7 @@ exports.generate_pdpka = generate_pdpka = ({km, session, user, hostname}, cb) ->
   arg.nonce = nonce if nonce?
   arg.session = session if session?
   eng = new proofs.Auth arg
-  await eng.generate defer err, sig
+  await eng.generate defer(err, sig), { dohash : true }
   cb err, sig?.armored
 
 #=======================================================================================
