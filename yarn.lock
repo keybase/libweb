@@ -817,20 +817,20 @@ iced-coffee-script@^108.0.8:
     iced-runtime ">=0.0.1"
     uglify-js "^3.5.9"
 
-iced-error@0.0.13, iced-error@>=0.0.8, iced-error@>=0.0.9:
+iced-error@0.0.13, iced-error@>=0.0.8, iced-error@>=0.0.9, iced-error@^0.0.13:
   version "0.0.13"
   resolved "https://registry.yarnpkg.com/iced-error/-/iced-error-0.0.13.tgz#a4a8a4f1461a59c7a2a380b4f745ffd80718f08b"
   integrity sha512-yEEaG8QfyyRL0SsbNNDw3rVgTyqwHFMCuV6jDvD43f/2shmdaFXkqvFLGhDlsYNSolzYHwVLM/CrXt9GygYopA==
-
-iced-error@0.0.9, iced-error@^0.0.9:
-  version "0.0.9"
-  resolved "https://registry.yarnpkg.com/iced-error/-/iced-error-0.0.9.tgz#c7c3057614c0a187d96b3d18c6d520e6b872ed37"
-  integrity sha1-x8MFdhTAoYfZaz0YxtUg5rhy7Tc=
 
 iced-error@^0.0.10:
   version "0.0.10"
   resolved "https://registry.yarnpkg.com/iced-error/-/iced-error-0.0.10.tgz#f82e4368f79f4afdf3ed20375acc28a8702809e8"
   integrity sha1-+C5DaPefSv3z7SA3WswoqHAoCeg=
+
+iced-error@^0.0.9:
+  version "0.0.9"
+  resolved "https://registry.yarnpkg.com/iced-error/-/iced-error-0.0.9.tgz#c7c3057614c0a187d96b3d18c6d520e6b872ed37"
+  integrity sha1-x8MFdhTAoYfZaz0YxtUg5rhy7Tc=
 
 iced-lock@^1.0.1, iced-lock@^1.0.2:
   version "1.1.0"
@@ -1710,7 +1710,7 @@ tough-cookie@~2.5.0:
     psl "^1.1.28"
     punycode "^2.1.1"
 
-triplesec@>=3.0.16, triplesec@^4.0.1, triplesec@^4.0.3:
+triplesec@>=3.0.16, triplesec@^4.0.3:
   version "4.0.3"
   resolved "https://registry.yarnpkg.com/triplesec/-/triplesec-4.0.3.tgz#fce5b89821b24d3a03bd09a15a4baecbd6a9b7a4"
   integrity sha512-fug70e1nJoCMxsXQJlETisAALohm84vl++IiTTHEqM7Lgqwz62jrlwqOC/gJEAJjO/ByN127sEcioB56HW3wIw==
