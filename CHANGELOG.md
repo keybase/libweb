@@ -1,3 +1,7 @@
+## 1.0.16 (2020-02-24)
+
+- extra version bumps
+
 ## 1.0.15 (2020-02-23)
 
 - update old deps and use packet hash when making NaCl sigs
