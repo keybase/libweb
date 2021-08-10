@@ -1072,7 +1072,26 @@ jsprim@^1.2.2:
     json-schema "0.2.3"
     verror "1.10.0"
 
-kbpgp@>=2.1.12, kbpgp@^2.0.0, kbpgp@^2.1.12:
+kbpgp@>=2.1.13, kbpgp@^2.1.13:
+  version "2.1.15"
+  resolved "https://registry.yarnpkg.com/kbpgp/-/kbpgp-2.1.15.tgz#f7b66ed6bad4eb51f355c3e164aea36a4ed124a5"
+  integrity sha512-iFdQT+m2Mi2DB14kEFydF2joNe9x3E2VZCGZUt7UXsiZnQx5TtSl4KofP7EPtjHvf7weCxNKlEPSYiiCNMZ2jA==
+  dependencies:
+    bn "^1.0.5"
+    bzip-deflate "^1.0.0"
+    deep-equal "^1.1.0"
+    iced-error "0.0.13"
+    iced-lock "^1.0.2"
+    iced-runtime "^1.0.4"
+    keybase-ecurve "^1.0.1"
+    keybase-nacl "^1.1.2"
+    minimist "^1.2.0"
+    pgp-utils "0.0.35"
+    purepack "^1.0.5"
+    triplesec "^4.0.3"
+    tweetnacl "^0.13.1"
+
+kbpgp@^2.0.0:
   version "2.1.12"
   resolved "https://registry.yarnpkg.com/kbpgp/-/kbpgp-2.1.12.tgz#d9c3b7a9cbce795ab4359c82d8d05ec09fb89a97"
   integrity sha512-Cb0YexMlErZOfug6tnQM5Ad9x1GRRJkggUAXJkZNyJnal4jIA8Ghe7zIeNzkPTIJQiW7jmycwkTkhZA97hzgWg==
@@ -1107,16 +1126,16 @@ keybase-nacl@^1.1.2:
     tweetnacl "^0.13.1"
     uint64be "^1.0.1"
 
-keybase-proofs@^2.3.20:
-  version "2.3.20"
-  resolved "https://registry.yarnpkg.com/keybase-proofs/-/keybase-proofs-2.3.20.tgz#c3687d9cfccd976c7b846e198e349f23acdb9056"
-  integrity sha512-4YYFP46Ks9DDNTIgtZIWPDehSDTFPkbADEuGg8sIThz8jGvxy2IE/rCuct4sRtjPbeTJwRk/FF2UL4GUrosLaA==
+keybase-proofs@^2.3.21:
+  version "2.3.24"
+  resolved "https://registry.yarnpkg.com/keybase-proofs/-/keybase-proofs-2.3.24.tgz#606051aba6258901e250375d6471a4749db5ae8c"
+  integrity sha512-zmBD1JOTxXk9G211WHeH5F7xxdORGUMdMrD4/u8R7Ij7Egl+dRdwgqrTNaCbE6d21IQw/qYA7tk4p8C4bEHZ/Q==
   dependencies:
     bitcoyne "^1.0.5"
     iced-error ">=0.0.9"
     iced-lock "^1.0.1"
     iced-runtime ">=0.0.1"
-    kbpgp ">=2.1.12"
+    kbpgp ">=2.1.13"
     pgp-utils ">=0.0.22"
     purepack "^1.0.4"
     triplesec ">=3.0.16"
@@ -1317,9 +1336,9 @@ path-is-absolute@^1.0.0, path-is-absolute@^1.0.1:
   integrity sha1-F0uSaHNVNP+8es5r9TpanhtcX18=
 
 path-parse@^1.0.6:
-  version "1.0.6"
-  resolved "https://registry.yarnpkg.com/path-parse/-/path-parse-1.0.6.tgz#d62dbb5679405d72c4737ec58600e9ddcf06d24c"
-  integrity sha512-GSmOT2EbHrINBf9SR7CDELwlJ8AENk3Qn7OikK4nFYAu3Ote2+JYNVvkpAEQm3/TLNEJFD/xZJjzyxg3KBWOzw==
+  version "1.0.7"
+  resolved "https://registry.yarnpkg.com/path-parse/-/path-parse-1.0.7.tgz#fbc114b60ca42b30d9daf5858e4bd68bbedb6735"
+  integrity sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==
 
 path-platform@~0.11.15:
   version "0.11.15"
